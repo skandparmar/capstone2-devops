@@ -3,7 +3,9 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "skparmar/capstone2-devops"
+        DOCKER_TAG   = "latest"
         DOCKER_CREDS = "dockerhub-creds"
+        KUBECONFIG   = "/var/lib/jenkins/.kube/config"
     }
 
     stages {
@@ -17,19 +19,23 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    docker.build("${DOCKER_IMAGE}:${BUILD_NUMBER}")
-                }
+                sh '''
+                  docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
+                '''
             }
         }
 
         stage('Push Image to Docker Hub') {
             steps {
-                script {
-                    docker.withRegistry('', DOCKER_CREDS) {
-                        docker.image("${DOCKER_IMAGE}:${BUILD_NUMBER}").push()
-                        docker.image("${DOCKER_IMAGE}:${BUILD_NUMBER}").push("latest")
-                    }
+                withCredentials([usernamePassword(
+                    credentialsId: DOCKER_CREDS,
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                      echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                      docker push $DOCKER_IMAGE:$DOCKER_TAG
+                    '''
                 }
             }
         }
@@ -37,9 +43,9 @@ pipeline {
         stage('Release Validation (25th Only)') {
             steps {
                 script {
-                    def day = sh(script: "date +%d", returnStdout: true).trim()
+                    def day = new Date().format("dd")
                     if (day != "25") {
-                        error("Deployment allowed only on 25th. Today is ${day}.")
+                        error(" Release allowed only on 25th of the month")
                     }
                 }
             }
@@ -48,8 +54,8 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                kubectl apply -f k8s-deployment.yaml
-                kubectl apply -f k8s-service.yaml
+                  kubectl apply -f k8s-deployment.yaml
+                  kubectl apply -f k8s-service.yaml
                 '''
             }
         }
@@ -57,10 +63,10 @@ pipeline {
 
     post {
         success {
-            echo "CI/CD Pipeline completed successfully"
+            echo " CI/CD Pipeline executed successfully"
         }
         failure {
-            echo "CI/CD Pipeline failed"
+            echo " CI/CD Pipeline failed"
         }
     }
 }

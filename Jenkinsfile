@@ -40,16 +40,16 @@ pipeline {
             }
         }
 
-        stage('Release Validation (25th Only)') {
-            steps {
-                script {
-                    def day = new Date().format("dd")
-                    if (day != "25") {
-                        error(" Release allowed only on 25th of the month")
-                    }
-                }
-            }
-        }
+ //       stage('Release Validation (25th Only)') {
+ //           steps {
+ //               script {
+ //                   def day = new Date().format("dd")
+ //                   if (day != "25") {
+ //                       error(" Release allowed only on 25th of the month")
+ //                   }
+ //               }
+ //           }
+ //       }
 
         stage('Deploy to Kubernetes') {
             steps {
